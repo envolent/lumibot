@@ -16,7 +16,7 @@ import matplotlib.gridspec as gridspec
 from matplotlib.backends.backend_pdf import PdfPages
 import numpy as np
 
-OUTPUT_DIR = "/home/user/lumibot/stock_reports"
+OUTPUT_DIR = "stock_reports"
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 STOCKS = {
@@ -100,7 +100,6 @@ def fetch_price_history(ticker, range_="6mo", interval="1d"):
     closes = r["indicators"]["quote"][0]["close"]
     volumes = r["indicators"]["quote"][0].get("volume", [])
     dates = [datetime.datetime.utcfromtimestamp(t).date() for t in timestamps]
-    # Clean None values
     clean = [(d, c, v) for d, c, v in zip(dates, closes, volumes) if c is not None]
     dates, closes, volumes = zip(*clean) if clean else ([], [], [])
     return list(dates), list(closes), list(volumes)
@@ -144,7 +143,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
     fig.patch.set_facecolor("#0d1117")
     gs = gridspec.GridSpec(3, 1, height_ratios=[3, 1, 1], hspace=0.08)
 
-    # ── Price + MA chart ────────────────────────────────────────────────────
     ax1 = fig.add_subplot(gs[0])
     ax1.set_facecolor("#0d1117")
     ax1.plot(dates, closes, color=color, linewidth=1.8, label="Close", zorder=3)
@@ -152,7 +150,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
     ax1.plot(dates, mas[20], color="#f0c040", linewidth=1.2, linestyle="--", label="MA 20", zorder=2)
     ax1.plot(dates, mas[50], color="#c0c0ff", linewidth=1.2, linestyle="--", label="MA 50", zorder=2)
 
-    # Analyst target line
     if info["current_target"]:
         ax1.axhline(info["current_target"], color="#00ff99", linewidth=1.2,
                     linestyle=":", label=f"Analyst Target ${info['current_target']:.2f}")
@@ -162,8 +159,7 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
     ax1.tick_params(colors="white", labelsize=8)
     for spine in ax1.spines.values():
         spine.set_edgecolor("#333")
-    ax1.legend(loc="upper left", fontsize=8, facecolor="#1a1a2e", labelcolor="white",
-               framealpha=0.8)
+    ax1.legend(loc="upper left", fontsize=8, facecolor="#1a1a2e", labelcolor="white", framealpha=0.8)
     ax1.grid(axis="y", color="#222", linewidth=0.5)
 
     pct_chg = (closes[-1] - closes[0]) / closes[0] * 100
@@ -175,7 +171,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
         color="white", fontsize=11, fontweight="bold", pad=10,
     )
 
-    # ── Volume ──────────────────────────────────────────────────────────────
     ax2 = fig.add_subplot(gs[1], sharex=ax1)
     ax2.set_facecolor("#0d1117")
     bar_colors = [color if c >= o else "#555" for c, o in zip(closes[1:], closes[:-1])]
@@ -188,7 +183,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
     ax2.grid(axis="y", color="#222", linewidth=0.4)
     plt.setp(ax2.get_xticklabels(), visible=False)
 
-    # ── RSI ─────────────────────────────────────────────────────────────────
     ax3 = fig.add_subplot(gs[2], sharex=ax1)
     ax3.set_facecolor("#0d1117")
     ax3.plot(dates, rsi, color="#ff9f1c", linewidth=1.3, label="RSI(14)")
@@ -205,7 +199,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
     ax3.xaxis.set_major_formatter(plt.matplotlib.dates.DateFormatter("%b '%y"))
     fig.autofmt_xdate(rotation=30, ha="right")
 
-    # Save individual PNG
     png_path = os.path.join(OUTPUT_DIR, f"{ticker}_chart.png")
     plt.savefig(png_path, dpi=150, bbox_inches="tight", facecolor=fig.get_facecolor())
     pdf.savefig(fig, bbox_inches="tight", facecolor=fig.get_facecolor())
@@ -215,7 +208,6 @@ def plot_stock(ticker, info, dates, closes, volumes, pdf):
 
 
 def plot_comparison_page(all_data, pdf):
-    """Bar chart: Projected upside % for all 5 stocks."""
     fig, axes = plt.subplots(1, 2, figsize=(14, 6))
     fig.patch.set_facecolor("#0d1117")
 
@@ -224,7 +216,6 @@ def plot_comparison_page(all_data, pdf):
     colors = [STOCKS[t]["color"] for t in tickers]
     names = [STOCKS[t]["name"].split()[0] + "\n" + tickers[i] for i, t in enumerate(tickers)]
 
-    # Left: upside bar chart
     ax = axes[0]
     ax.set_facecolor("#0d1117")
     bars = ax.barh(names, upsides, color=colors, edgecolor="#333", height=0.55)
@@ -240,14 +231,12 @@ def plot_comparison_page(all_data, pdf):
     ax.grid(axis="x", color="#222", linewidth=0.5)
     ax.legend(fontsize=8, facecolor="#1a1a2e", labelcolor="white")
 
-    # Right: 6-month normalised performance (all start at 100)
     ax2 = axes[1]
     ax2.set_facecolor("#0d1117")
     for ticker, (dates, closes, _) in all_data.items():
         if closes:
             norm = [c / closes[0] * 100 for c in closes]
-            ax2.plot(dates, norm, color=STOCKS[ticker]["color"],
-                     linewidth=1.8, label=ticker)
+            ax2.plot(dates, norm, color=STOCKS[ticker]["color"], linewidth=1.8, label=ticker)
     ax2.axhline(100, color="#555", linewidth=0.8, linestyle="--")
     ax2.set_ylabel("Normalized Price (Base=100)", color="white")
     ax2.set_title("6-Month Relative Performance", color="white", fontweight="bold")
@@ -282,7 +271,6 @@ def plot_cover_page(pdf):
     ax.text(0.5, 0.74, f"Generated: {datetime.date.today().strftime('%B %d, %Y')}",
             ha="center", va="center", fontsize=13, color="#666", transform=ax.transAxes)
 
-    # Table
     col_labels = ["Ticker", "Company", "Sector", "Rating", "Upside", "Analysts", "Fwd P/E"]
     rows = []
     for t, info in STOCKS.items():
@@ -301,9 +289,9 @@ def plot_cover_page(pdf):
         cell.set_facecolor("#1a1a2e" if r > 0 else "#222244")
         cell.set_text_props(color="white")
         cell.set_edgecolor("#333")
-        if r > 0 and c == 4:  # Upside column
+        if r > 0 and c == 4:
             cell.set_text_props(color="#00ff99", fontweight="bold")
-        if r > 0 and c == 3:  # Rating
+        if r > 0 and c == 3:
             cell.set_text_props(color="#f0c040")
 
     ax.text(0.5, 0.17,
@@ -319,11 +307,9 @@ def plot_cover_page(pdf):
 
 
 def plot_analyst_detail_page(pdf):
-    """Summary page with analyst details per stock."""
     fig, axes = plt.subplots(1, 3, figsize=(16, 7))
     fig.patch.set_facecolor("#0d1117")
 
-    # ── Pie: Rating distribution ─────────────────────────────────────────
     ax = axes[0]
     ax.set_facecolor("#0d1117")
     ratings = {"Strong Buy": 4, "Buy": 1}
@@ -338,7 +324,6 @@ def plot_analyst_detail_page(pdf):
         at.set_fontsize(10)
     ax.set_title("Consensus Ratings", color="white", fontweight="bold")
 
-    # ── Bar: Number of analysts ──────────────────────────────────────────
     ax2 = axes[1]
     ax2.set_facecolor("#0d1117")
     tickers = list(STOCKS.keys())
@@ -356,7 +341,6 @@ def plot_analyst_detail_page(pdf):
     ax2.set_facecolor("#0d1117")
     ax2.grid(axis="y", color="#222", linewidth=0.5)
 
-    # ── Scatter: Forward P/E vs Upside ───────────────────────────────────
     ax3 = axes[2]
     ax3.set_facecolor("#0d1117")
     for t, info in STOCKS.items():
@@ -405,7 +389,6 @@ def main():
             if dates:
                 plot_stock(ticker, info, dates, closes, volumes, pdf)
 
-        # PDF metadata
         meta = pdf.infodict()
         meta["Title"] = "Stock Analytics Report — April 2026"
         meta["Author"] = "LumiBot Analytics"
@@ -413,9 +396,6 @@ def main():
         meta["CreationDate"] = datetime.datetime.now()
 
     print(f"\nReport saved to: {pdf_path}")
-    print(f"Individual charts saved to: {OUTPUT_DIR}/")
-
-    # List all outputs
     for f in sorted(os.listdir(OUTPUT_DIR)):
         size = os.path.getsize(os.path.join(OUTPUT_DIR, f))
         print(f"  {f}  ({size/1024:.1f} KB)")
